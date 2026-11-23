@@ -5,82 +5,80 @@
 [![XGBoost](https://img.shields.io/badge/XGBoost-2.x-red)]()
 [![License](https://img.shields.io/badge/License-MIT-green)]()
 
-Binary classification of customer churn on the IBM Telco Customer Churn dataset.
-Compares Logistic Regression, Random Forest, and XGBoost under class-weighted
-vs. unweighted training, evaluated with stratified 5-fold cross-validation and
-a held-out test set. Primary metric: **ROC-AUC** (target > 0.80).
+An end-to-end machine learning pipeline designed to predict customer churn and identify the key drivers of customer attrition. 
+
+Rather than just optimizing for raw accuracy (which fails on imbalanced data), this project focuses on **catching actual churners** to maximize retention ROI. We compare Logistic Regression, Random Forest, and XGBoost under class-weighted vs. unweighted training, evaluated with stratified 5-fold cross-validation. Primary metric: **ROC-AUC** (target > 0.80).
 
 ---
 
 ## Table of Contents
 
-- [Overview](#overview)
+- [Business Context](#business-context)
+- [Key Findings & Business Recommendations](#key-findings--business-recommendations)
 - [Dataset](#dataset)
-- [Approach](#approach)
+- [Approach & Methodology](#approach--methodology)
 - [Results](#results)
 - [Project Structure](#project-structure)
-- [How to Run](#how-to-run)
-- [Key Findings](#key-findings)
-
 
 ---
 
-## Overview
+## Business Context
 
-Customer churn — a subscriber leaving the service — is one of the highest-value
-prediction problems in telecom. This project builds and compares three classifiers
-for churn prediction, with explicit attention to **class imbalance** (~26.5% churners)
-and **threshold-independent evaluation** (ROC-AUC).
+Customer churn—a subscriber leaving the service—is one of the highest-cost problems in the telecom industry. Acquiring a new customer costs 5x to 7x more than retaining an existing one. 
 
-**Questions this notebook answers:**
+However, churn is highly imbalanced: only **26.5%** of customers in this dataset actually churn. A naive model can achieve 73.5% "accuracy" simply by predicting that *everyone* will stay, but it would catch zero churners. This project solves that problem by applying **class weighting** to force the models to prioritize identifying at-risk customers.
 
-1. How much does class weighting improve recall without hurting ROC-AUC?
-2. Does XGBoost meaningfully beat a logistic-regression baseline on tabular data?
-3. Which customer attributes drive churn most strongly?
+**Business Questions Answered:**
+1. How can we maximize the number of churners we catch (Recall) without overwhelming the retention team with too many false alarms?
+2. Which specific customer behaviors and service combinations are driving the most revenue loss?
+3. What immediate policy changes can the retention team implement to stop the bleeding?
 
 ---
+## Key Findings & Business Recommendations
+Class weighting dramatically improves Retention ROI. While ROC-AUC stayed flat (~0.84), class weighting boosted our Recall from 54% to 80%. We traded a higher number of "False Alarms" for fewer "Missed Churners."
+
+Linear Models are highly competitive here. Logistic Regression slightly beat XGBoost. This means the data is largely linearly separable, and a simpler, easily explainable model is the safest choice for production deployment.
+
+**Month-to-Month:** Feature importance revealed that Month-to-month contracts are by far the biggest predictor of churn. Customers without long-term commitment are massive flight risks.
+
+**Service Gaps Drive Attrition:** Customers with Fiber Optic internet who lack Online Security or Tech Support are highly likely to leave. This suggests a product-market fit issue or frustration with premium tiers.
+
+**Actionable Next Steps for the Business:**
+
+**Incentivize Annual Contracts:** Launch a targeted campaign offering a 10% discount or a free streaming upgrade to month-to-month customers who upgrade to a 1-year contract.
+
+**Bundle Support Services:** Proactively offer free 3-month trials of Online Security and Tech Support to all new Fiber Optic customers to increase product stickiness.
+
 
 ## Dataset
 
-- **Source:** [IBM Telco Customer Churn](https://raw.githubusercontent.com/IBM/telco-customer-churn-on-icp4d/master/data/Telco-Customer-Churn.csv) (public, loaded directly from the URL)
+- **Source:** [IBM Telco Customer Churn](https://raw.githubusercontent.com/IBM/telco-customer-churn-on-icp4d/master/data/Telco-Customer-Churn.csv)
 - **Size:** 7,043 customers × 21 columns
-- **Target:** `Churn` (binary: Yes/No → 1/0), **26.5% positive**
-- **Features:** demographics (`gender`, `SeniorCitizen`, `Partner`, `Dependents`),
-  account info (`tenure`, `Contract`, `PaymentMethod`, `PaperlessBilling`),
-  services (`PhoneService`, `InternetService`, `OnlineSecurity`, …),
-  billing (`MonthlyCharges`, `TotalCharges`)
-
-**Data-quality notes handled:**
-
-- `TotalCharges` is delivered as a string with 11 blank values (customers with
-  `tenure = 0`). Coerced to numeric; blanks filled to 0 (new customers, not missing-at-random).
-- `customerID` is an identifier and is dropped before modeling.
-- `No internet service` / `No phone service` are structural states, not missing values.
-- No numeric outliers flagged by IQR fences.
+- **Target:** `Churn` (Binary: Yes/No → 1/0), 26.5% positive class.
+- **Data Cleaning:** 
+  - `TotalCharges` was delivered as a string with 11 blank values (new customers with `tenure = 0`). It was coerced to numeric and blanks were filled to 0.
+  - `customerID` was dropped to prevent overfitting. 
+  - Structural states (like `No internet service`) were preserved rather than treated as missing data.
 
 ---
 
-## Approach
+## Approach & Methodology
 
-| Step | What was done |
+| Step | Technical Implementation |
 |---|---|
-| **Split** | 80/20 stratified train/test, `random_state=42` |
-| **Preprocessing** | `ColumnTransformer`: median-impute + standard-scale numeric features; most-frequent-impute + `OneHotEncoder(drop='if_binary', handle_unknown='ignore')` for categoricals — all inside a `Pipeline` so it is fit per fold |
-| **Imbalance handling** | Class weighting: `class_weight='balanced'` (LR), `'balanced_subsample'` (RF), `scale_pos_weight≈2.77` (XGB). Chosen over SMOTE because the 2.8:1 ratio is moderate and ROC-AUC is threshold-independent — documented in the notebook |
-| **Models** | Logistic Regression (baseline), Random Forest (300 trees), XGBoost (300 trees, lr=0.05, depth=4) — each in **both** weighted and unweighted variants |
-| **Cross-validation** | `StratifiedKFold(n_splits=5, shuffle=True, random_state=42)`, same folds for all 6 pipelines |
-| **Metrics** | ROC-AUC (primary), F1, precision, recall |
-| **Evaluation** | ROC curves, confusion matrices, top-10 feature importances |
+| **Data Split** | 80/20 stratified train/test split to preserve the 26.5% churn ratio. |
+| **Preprocessing** | `ColumnTransformer` + `Pipeline`: Standard-scaling for numerics; `OneHotEncoder` for categoricals. Fitted strictly within CV folds to prevent data leakage. |
+| **Imbalance Handling** | Class weighting (`balanced` for LR/RF, `scale_pos_weight≈2.77` for XGB) rather than SMOTE. Chosen to directly optimize threshold-independent metrics (ROC-AUC) and reflect the business cost of missing a churner. |
+| **Models** | Logistic Regression (baseline), Random Forest, and XGBoost (300 trees each). Both weighted and unweighted variants were trained. |
+| **Evaluation** | Stratified 5-fold Cross-Validation, ROC-AUC, F1, Precision, Recall, Confusion Matrices, and Feature Importances. |
 
 ---
 
 ## Results
-[]
-
-
-### Cross-validation (5-fold, mean ± std)
 
 *Target Metric: ROC-AUC > 0.80 — Achieved by all models.*
+
+### Cross-Validation (5-Fold Mean)
 
 | Model Variant | ROC-AUC | F1-Score | Precision | Recall |
 | :--- | :--- | :--- | :--- | :--- |
@@ -91,41 +89,55 @@ and **threshold-independent evaluation** (ROC-AUC).
 | RandomForest \| weighted | 0.8239 | 0.542 | 0.634 | 0.473 |
 | RandomForest \| default | 0.8231 | 0.548 | 0.634 | 0.483 |
 
-### Held-out test set (primary variant: [XGBoost | weighted])
+### Held-out Test Set (Primary Model: Logistic Regression | Weighted)
+On unseen data, our champion model achieved an **ROC-AUC of 0.8415**, proving it generalizes well without overfitting.
 
-| Metric | Value |
-|---|---|
-| ROC-AUC | 0.8415 |
-| XGBoost (Weighted) ROC-AUC | 0.8409 |
-| Default Model ROC-AUC | 0.8418 |
+### The Business Impact of Class Weighting (Confusion Matrix)
+To understand the ROI of this model, we look at the Confusion Matrix on the test set (1,409 customers):
+* **Default Model:** Missed **164** churners (False Negatives). 
+* **Weighted Model:** Missed only **81** churners. 
+By applying class weights, the model successfully identified **83 additional at-risk customers**. While this caused False Positives to rise (from 110 to 288), the cost of sending a retention offer to a loyal customer is drastically lower than the lost revenue of a churned customer.
 
-**Target met:** ROC-AUC is well above the 0.80 threshold, and the test set scores closely match the CV scores, proving the model generalizes well.
-
-### Figures
-
+### Visualizing the Results
 
 **ROC Curves**
+
 ![ROC Curves](figures/roc_curve.png)
 
-**Confusion Matrices (Default vs Weighted)**
+**Confusion Matrices (Default vs Weighted Logistic Regression)**
+
 ![Confusion Matrices](figures/confusion_matrix_logreg.png)
 
-**Top 10 Feature Importances (XGBoost)**
+**Top 10 Churn Drivers (XGBoost Feature Importance)**
+
 ![Feature Importance](figures/feature_importance_xgboost.png)
 
+**Top Features Extracted by XGBoost:**
+1. `Contract_Month-to-month` (Dominant driver)
+2. `InternetService_Fiber optic`
+3. `OnlineSecurity_No`
+4. `TechSupport_No`
+5. `InternetService_No`
+6. `StreamingMovies_Yes`
+7. `Contract_Two year`
+8. `InternetService_DSL`
+9. `Contract_One year`
+10. `PaymentMethod_Electronic check`
 
-**Note:** *While Logistic Regression was our best-performing model for classification (highest ROC-AUC), we will use XGBoost to extract Feature Importances. Logistic Regression coefficients are highly sensitive to multicollinearity (specifically the 'No internet service' dummy variables in this dataset), which creates misleading negative coefficients. XGBoost's tree-based architecture handles these structural states cleanly, providing a much more reliable and interpretable ranking of the true churn drivers.*
+**Note on Methodology:** *While Logistic Regression was our best-performing model for classification (highest ROC-AUC), we used XGBoost to extract Feature Importances. Logistic Regression coefficients are highly sensitive to multicollinearity (specifically the 'No internet service' dummy variables), which creates misleading coefficients. XGBoost's tree-based architecture handles these structural states cleanly, providing a much more reliable ranking of true business drivers.*
+
 ---
-
 
 ## Project Structure
 
+```text
 Predictive Customer Churn/
 ├── README.md
 ├── notebook/
-│ └── Predictive Customer Churn Classifier.ipynb
+│   └── Predictive Customer Churn Classifier.ipynb
 ├── figures/
-│ ├── roc_curve.png
-│ ├── confusion_matrix_logreg.png
-│ └── feature_importance_xgboost.png
+│   ├── roc_curve.png
+│   ├── confusion_matrix_logreg.png
+│   └── feature_importance_xgboost.png
 ├── requirements.txt
+└── LICENSE
