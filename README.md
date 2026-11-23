@@ -80,36 +80,43 @@ and **threshold-independent evaluation** (ROC-AUC).
 
 ### Cross-validation (5-fold, mean ± std)
 
-| Model | Variant | ROC-AUC | F1 | Precision | Recall |
-|---|---|---|---|---|---|
-| Logistic Regression | default | [0.8xx ± 0.0xx] | [0.xx] | [0.xx] | [0.xx] |
-| Logistic Regression | weighted | [0.8xx ± 0.0xx] | [0.xx] | [0.xx] | [0.xx] |
-| Random Forest | default | [0.8xx ± 0.0xx] | [0.xx] | [0.xx] | [0.xx] |
-| Random Forest | weighted | [0.8xx ± 0.0xx] | [0.xx] | [0.xx] | [0.xx] |
-| XGBoost | default | [0.8xx ± 0.0xx] | [0.xx] | [0.xx] | [0.xx] |
-| XGBoost | weighted | [0.8xx ± 0.0xx] | [0.xx] | [0.xx] | [0.xx] |
+*Target Metric: ROC-AUC > 0.80 — Achieved by all models.*
+
+| Model Variant | ROC-AUC | F1-Score | Precision | Recall |
+| :--- | :--- | :--- | :--- | :--- |
+| **LogReg \| weighted** | **0.8459** | 0.629 | 0.517 | **0.801** |
+| LogReg \| default | 0.8461 | 0.592 | 0.652 | 0.544 |
+| XGBoost \| default | 0.8445 | 0.580 | 0.656 | 0.520 |
+| XGBoost \| weighted | 0.8443 | 0.631 | 0.532 | 0.777 |
+| RandomForest \| weighted | 0.8239 | 0.542 | 0.634 | 0.473 |
+| RandomForest \| default | 0.8231 | 0.548 | 0.634 | 0.483 |
 
 ### Held-out test set (primary variant: [XGBoost | weighted])
 
 | Metric | Value |
 |---|---|
-| ROC-AUC | [0.8xx] |
-| F1 | [0.xx] |
-| Precision | [0.xx] |
-| Recall | [0.xx] |
-| Accuracy | [0.xx] |
+| ROC-AUC | 0.8415 |
+| XGBoost (Weighted) ROC-AUC | 0.8409 |
+| Default Model ROC-AUC | 0.8418 |
 
-**Target met:** ROC-AUC [above / not yet above] the 0.80 threshold.
+**Target met:** ROC-AUC is well above the 0.80 threshold, and the test set scores closely match the CV scores, proving the model generalizes well.
 
 ### Figures
 
-| Figure | Description |
-|---|---|
-| `figures/roc_curves.png` | ROC curves for all models (weighted variant) |
-| `figures/confusion_matrix_<model>.png` | Confusion matrix for the selected model |
-| `figures/feature_importance_<model>.png` | Top-10 feature importances (RF / XGB) |
 
+**ROC Curves**
+![ROC Curves](figures/roc_curve.png)
+
+**Confusion Matrices (Default vs Weighted)**
+![Confusion Matrices](figures/confusion_matrix_logreg.png)
+
+**Top 10 Feature Importances (XGBoost)**
+![Feature Importance](figures/feature_importance_xgboost.png)
+
+
+**Note:** *While Logistic Regression was our best-performing model for classification (highest ROC-AUC), we will use XGBoost to extract Feature Importances. Logistic Regression coefficients are highly sensitive to multicollinearity (specifically the 'No internet service' dummy variables in this dataset), which creates misleading negative coefficients. XGBoost's tree-based architecture handles these structural states cleanly, providing a much more reliable and interpretable ranking of the true churn drivers.*
 ---
+
 
 ## Project Structure
 
@@ -118,7 +125,7 @@ Predictive Customer Churn/
 ├── notebook/
 │ └── Predictive Customer Churn Classifier.ipynb
 ├── figures/
-│ ├── roc_curves.png
-│ ├── confusion_matrix_xgboost.png
+│ ├── roc_curve.png
+│ ├── confusion_matrix_logreg.png
 │ └── feature_importance_xgboost.png
 ├── requirements.txt
